@@ -3,6 +3,8 @@ import SwiftUI
 
 /// Popover editor for a single task. Core fields are always visible;
 /// description and links sit under "More" unless they already have content.
+///
+/// Closing the popover any way other than Cancel/Esc keeps the changes, like other Mac apps.
 struct TaskEditorView: View {
     let model: TaskListModel
     let calendar: Calendar
@@ -14,12 +16,16 @@ struct TaskEditorView: View {
     @State private var showMore: Bool
     @FocusState private var titleFocused: Bool
     @State private var newCategoryName: String?
+    private let original: DailyTask
+    /// Set by Save or Cancel, so closing afterwards doesn't save again.
+    @State private var finished = false
 
     init(task: DailyTask, model: TaskListModel, onSave: @escaping (DailyTask) -> Void, onCancel: @escaping () -> Void) {
         self.model = model
         self.calendar = model.calendar
         self.onSave = onSave
         self.onCancel = onCancel
+        self.original = task
         _draft = State(initialValue: task)
         _links = State(initialValue: task.links.map(LinkDraft.init))
         _showMore = State(initialValue: !task.notes.isEmpty || !task.links.isEmpty)
@@ -80,7 +86,10 @@ struct TaskEditorView: View {
 
             HStack {
                 Spacer()
-                Button("Cancel", action: onCancel)
+                Button("Cancel") {
+                    finished = true
+                    onCancel()
+                }
                     .keyboardShortcut(.cancelAction)
                 Button("Save", action: save)
                     .keyboardShortcut(.defaultAction)
@@ -90,6 +99,7 @@ struct TaskEditorView: View {
         .padding(16)
         .frame(width: 340)
         .onAppear { titleFocused = true }
+        .onDisappear(perform: saveIfChanged)
     }
 
     // MARK: - Due date & time
@@ -339,9 +349,23 @@ struct TaskEditorView: View {
         .accessibilityLabel(accessibility)
     }
 
-    private func save() {
+    private var edited: DailyTask {
         var task = draft
         task.links = links.compactMap(\.taskLink)
+        return task
+    }
+
+    private func save() {
+        finished = true
+        onSave(edited)
+    }
+
+    /// Clicked away: keep real changes; an emptied title can't be saved, so it's dropped.
+    private func saveIfChanged() {
+        guard !finished else { return }
+        finished = true
+        let task = edited
+        guard task != original, !task.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         onSave(task)
     }
 }

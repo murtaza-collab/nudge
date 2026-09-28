@@ -64,9 +64,26 @@ struct TaskRowView: View {
             }
         }
         .contextMenu { contextMenu }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription)
+        .accessibilityHint("Space completes, Return edits")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityAction(named: "Complete") { complete() }
         .accessibilityAction(named: "Edit") { isEditing = true }
+    }
+
+    /// One sentence for VoiceOver: "Fix payments API, overdue, due Yesterday · 3:00 PM, High priority, category Work".
+    private var accessibilityDescription: String {
+        var parts = [task.title]
+        if pastDue { parts.append("overdue") }
+        if let due = DueFormatting.dueLabel(for: task, today: model.today, calendar: model.calendar) {
+            parts.append("due \(due.replacingOccurrences(of: " · ", with: " at "))")
+        }
+        if task.priority != .none { parts.append("\(task.priority.title) priority") }
+        if let category = model.category(for: task) { parts.append("category \(category.name)") }
+        if let recurrence = task.recurrence { parts.append(recurrence.summary(calendar: model.calendar)) }
+        if task.notificationsMuted { parts.append("notifications off") }
+        return parts.joined(separator: ", ")
     }
 
     // MARK: - Pieces
@@ -100,6 +117,8 @@ struct TaskRowView: View {
                 if let due {
                     Text(due)
                         .foregroundStyle(pastDue ? Theme.red : Color.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 if let recurrence = task.recurrence {
                     Image(systemName: "repeat")

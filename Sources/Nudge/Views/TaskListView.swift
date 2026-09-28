@@ -15,6 +15,10 @@ struct TaskListView: View {
     @State private var categoryFilter: UUID?
     @State private var contentHeight: CGFloat = 0
     @FocusState private var addFieldFocused: Bool
+    /// Keyboard selection in the list.
+    @State private var selectedID: UUID?
+    @State private var editRequest: EditRequest?
+    @FocusState private var listFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,29 +27,42 @@ struct TaskListView: View {
                 categoryFilterBar
             }
             Divider()
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    if groups.totalCount == 0 {
-                        if let category = activeFilter {
-                            Text("Nothing in \(category.name).")
-                                .font(.system(size: 13))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 8)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        if groups.totalCount == 0 {
+                            if let category = activeFilter {
+                                Text("Nothing in \(category.name).")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 8)
+                            } else {
+                                emptyToday
+                            }
                         } else {
-                            emptyToday
-                        }
-                    } else {
-                        ForEach(TaskSection.allCases, id: \.self) { section in
-                            sectionView(section)
+                            ForEach(TaskSection.allCases, id: \.self) { section in
+                                sectionView(section)
+                            }
                         }
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 12)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+                    .animation(.snappy(duration: 0.25), value: groups)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 12)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+                .frame(height: min(contentHeight, maxListHeight))
+                .scrollBounceBehavior(.basedOnSize)
+                .focusable()
+                .focusEffectDisabled()
+                .focused($listFocused)
+                .onKeyPress(keys: [.upArrow, .downArrow, .space, .return, .delete, .deleteForward]) { press in
+                    handleListKey(press.key)
+                }
+                .onChange(of: selectedID) {
+                    if let selectedID { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(selectedID) } }
+                }
+                .onChange(of: listFocused) { if !listFocused && !addFieldFocused { selectedID = nil } }
             }
-            .frame(height: min(contentHeight, maxListHeight))
-            .scrollBounceBehavior(.basedOnSize)
             if let undo = model.pendingUndo {
                 UndoBar(action: undo, onUndo: model.undo, onDismiss: model.dismissUndo)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -59,6 +76,8 @@ struct TaskListView: View {
         }
         .animation(.easeOut(duration: 0.2), value: model.pendingUndo?.id)
         .onChange(of: focusAddFieldRequest) { addFieldFocused = true }
+        // Keyboard-first: the add field is ready as soon as the panel opens.
+        .onAppear { addFieldFocused = true }
     }
 
     private var addField: some View {
@@ -73,12 +92,58 @@ struct TaskListView: View {
                     .onSubmit { add(parsing: true) }
                     .onOptionReturn { add(parsing: false) }
                     .onCategoryCompletion($newTitle, categories: model.categories)
+                    .onKeyPress(.downArrow) {
+                        // ↓ moves from the add field into the list.
+                        guard let first = visibleTasks.first else { return .ignored }
+                        selectedID = first.id
+                        listFocused = true
+                        return .handled
+                    }
             }
             ParsePreview(text: newTitle, model: model, fontSize: 11)
                 .padding(.leading, 22)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    // MARK: - Keyboard
+
+    /// Tasks in on-screen order, for ↑↓ navigation.
+    private var visibleTasks: [DailyTask] {
+        TaskSection.allCases.flatMap { groups[$0] }
+    }
+
+    /// ↑↓ move, Space completes, Return edits, ⌫ deletes (with undo). ↑ from the top
+    /// returns to the add field.
+    private func handleListKey(_ key: KeyEquivalent) -> KeyPress.Result {
+        let tasks = visibleTasks
+        let index = selectedID.flatMap { id in tasks.firstIndex { $0.id == id } }
+        switch key {
+        case .downArrow:
+            guard !tasks.isEmpty else { return .ignored }
+            selectedID = tasks[min((index ?? -1) + 1, tasks.count - 1)].id
+        case .upArrow:
+            if let index, index > 0 {
+                selectedID = tasks[index - 1].id
+            } else {
+                selectedID = nil
+                addFieldFocused = true
+            }
+        case .space, .delete, .deleteForward:
+            guard let index else { return .ignored }
+            let task = tasks[index]
+            // Keep the selection on a neighbor so repeated presses work down the list.
+            let neighbor = tasks.indices.contains(index + 1) ? tasks[index + 1] : (index > 0 ? tasks[index - 1] : nil)
+            if key == .space { model.complete(task) } else { model.delete(task) }
+            selectedID = neighbor?.id
+        case .return:
+            guard let index else { return .ignored }
+            editRequest = EditRequest(taskID: tasks[index].id)
+        default:
+            return .ignored
+        }
+        return .handled
     }
 
     /// The selected filter, if that category still exists.
@@ -150,7 +215,10 @@ struct TaskListView: View {
                         .padding(.vertical, 4)
                 }
                 ForEach(tasks) { task in
-                    TaskRowView(task: task, section: section, model: model, hideCategory: activeFilter != nil)
+                    TaskRowView(task: task, section: section, model: model, hideCategory: activeFilter != nil,
+                                editRequest: editRequest, isSelected: listFocused && selectedID == task.id)
+                        .id(task.id)
+                        .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))
                 }
             }
         }
