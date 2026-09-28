@@ -24,3 +24,7 @@ make test   # run the test suite
 ```
 
 The app is a Swift package: `Sources/DailyCore` holds the model, storage (SQLite), date parsing and scheduling logic with tests; `Sources/Nudge` is the AppKit/SwiftUI app.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
