@@ -109,7 +109,10 @@ final class BriefingController {
         )
         Self.log.notice("Briefing \(String(describing: trigger), privacy: .public): \(show ? "show" : "skip", privacy: .public)")
         guard show else { return }
-        UserDefaults.standard.set(today.description, forKey: Self.lastShownKey)
+        // Opening it from the menu doesn't use up the day's automatic briefing.
+        if trigger != .manual {
+            UserDefaults.standard.set(today.description, forKey: Self.lastShownKey)
+        }
         present(focus: trigger == .manual)
     }
 
