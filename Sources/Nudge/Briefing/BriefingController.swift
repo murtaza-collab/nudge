@@ -70,9 +70,19 @@ final class BriefingController {
     /// screen is usable.
     private func scheduleWakeCheck() {
         pendingWake?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.evaluate(.wake) }
+        let work = DispatchWorkItem { [weak self] in
+            // Never show tasks over the lock screen; the unlock notification triggers
+            // this check again once the user is in.
+            guard !Self.isScreenLocked else { return }
+            self?.evaluate(.wake)
+        }
         pendingWake = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+    }
+
+    private static var isScreenLocked: Bool {
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        return (session["CGSSessionScreenIsLocked"] as? Bool) == true
     }
 
     private func scheduleTimeTrigger() {
