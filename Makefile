@@ -19,7 +19,9 @@ app: build
 	codesign --force --sign - "$(APP)"
 
 # The copy in /Applications is the one you use day to day, and the only one that
-# registers as a login item. Development runs with -StorePath use build/ directly.
+# registers as a login item. It's an optimized release build without the debug-only
+# snapshot tools; development runs (`make app`, -StorePath) use the debug build.
+install run: CONFIG := release
 install: app
 	@pkill -x $(EXECUTABLE) && sleep 1 || true
 	@# Remove the copy from before the app was renamed to Nudge.

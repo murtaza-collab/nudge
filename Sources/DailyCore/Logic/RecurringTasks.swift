@@ -17,7 +17,6 @@ public enum RecurringTasks {
         next.seriesID = task.seriesID ?? task.id
         next.completedAt = nil
         next.snoozedUntil = nil
-        next.notificationsAcknowledgedAt = nil
         next.notificationsMuted = false
         next.createdAt = now
         next.updatedAt = now

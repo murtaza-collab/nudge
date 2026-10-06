@@ -85,9 +85,6 @@ public struct DailyTask: Identifiable, Hashable, Codable, Sendable {
     public var notificationsMuted: Bool
     /// "Remind me later": no notifications before this moment.
     public var snoozedUntil: Date?
-    /// When a notification for this task was dismissed. Stops repeats for any due
-    /// moment at or before it; rescheduling to a later time starts them again.
-    public var notificationsAcknowledgedAt: Date?
     /// Identifies all occurrences of one recurring task.
     public var seriesID: UUID?
     public var createdAt: Date
@@ -107,7 +104,6 @@ public struct DailyTask: Identifiable, Hashable, Codable, Sendable {
         categoryID: UUID? = nil,
         notificationsMuted: Bool = false,
         snoozedUntil: Date? = nil,
-        notificationsAcknowledgedAt: Date? = nil,
         seriesID: UUID? = nil,
         createdAt: Date = Date(),
         updatedAt: Date? = nil,
@@ -125,7 +121,6 @@ public struct DailyTask: Identifiable, Hashable, Codable, Sendable {
         self.categoryID = categoryID
         self.notificationsMuted = notificationsMuted
         self.snoozedUntil = snoozedUntil
-        self.notificationsAcknowledgedAt = notificationsAcknowledgedAt
         self.seriesID = seriesID
         self.createdAt = createdAt
         self.updatedAt = updatedAt ?? createdAt

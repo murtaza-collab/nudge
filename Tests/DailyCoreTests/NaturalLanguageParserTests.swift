@@ -334,9 +334,8 @@ import Testing
         var task = weekly(dueOffset: 0)
         task.notificationsMuted = true
         task.snoozedUntil = date(2026, 9, 28, 10, 30)
-        task.notificationsAcknowledgedAt = date(2026, 9, 28, 10, 5)
         let next = try #require(RecurringTasks.nextOccurrence(of: task, today: today, calendar: testCalendar))
-        #expect(!next.notificationsMuted && next.snoozedUntil == nil && next.notificationsAcknowledgedAt == nil)
+        #expect(!next.notificationsMuted && next.snoozedUntil == nil)
     }
 
     @Test func absoluteReminderMovesWithDueDate() throws {

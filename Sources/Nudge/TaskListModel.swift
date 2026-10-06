@@ -258,7 +258,6 @@ final class TaskListModel {
         // Rescheduling restarts reminders: drop any snooze or dismissal from the old time.
         if let old = activeTasks.first(where: { $0.id == task.id }), task.scheduleDiffers(from: old) {
             task.snoozedUntil = nil
-            task.notificationsAcknowledgedAt = nil
         }
         perform { try store.save(task) }
         reload()

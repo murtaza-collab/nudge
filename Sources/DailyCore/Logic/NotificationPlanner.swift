@@ -28,7 +28,7 @@ public struct PlannedNotification: Hashable, Sendable {
 /// - A task's reminder loop starts at its due time, or at its reminder if it has no due time.
 /// - A reminder earlier than the due time fires once, as a heads-up.
 /// - When persistent, the loop repeats every `repeatInterval` until the task is completed,
-///   muted ("Don't notify again"), acknowledged (dismissed), or rescheduled.
+///   muted ("Don't notify again"), or rescheduled. Closing a notification doesn't stop it.
 /// - "Remind me later" (`snoozedUntil`) suppresses everything until then; the loop resumes from there.
 public struct NotificationPlanner: Sendable {
     public var repeatInterval: TimeInterval
@@ -53,14 +53,7 @@ public struct NotificationPlanner: Sendable {
 
     /// Whether the task can still produce notifications (ignoring timing).
     public static func isNotifiable(_ task: DailyTask, calendar: Calendar = .current) -> Bool {
-        guard !task.isCompleted, !task.notificationsMuted else { return false }
-        if let start = loopStart(for: task, calendar: calendar),
-           let acknowledged = task.notificationsAcknowledgedAt,
-           acknowledged >= start {
-            // Dismissed; only an earlier heads-up reminder could still matter, and it's in the past.
-            return false
-        }
-        return loopStart(for: task, calendar: calendar) != nil
+        !task.isCompleted && !task.notificationsMuted && loopStart(for: task, calendar: calendar) != nil
     }
 
     public func plan(for tasks: [DailyTask], now: Date = Date(), calendar: Calendar = .current) -> [PlannedNotification] {
@@ -81,23 +74,20 @@ public struct NotificationPlanner: Sendable {
             result.append(PlannedNotification(taskID: task.id, fireDate: reminder, kind: .reminder))
         }
 
-        let acknowledged = task.notificationsAcknowledgedAt.map { $0 >= start } ?? false
-        if !acknowledged {
-            if let snooze {
-                // Resume from the snooze time, then keep the normal interval from there.
-                result.append(PlannedNotification(taskID: task.id, fireDate: snooze, kind: .repeated))
-                if persistent {
-                    result += repeats(after: snooze, from: snooze, task: task)
-                }
-            } else if start > now {
-                result.append(PlannedNotification(taskID: task.id, fireDate: start, kind: .due))
-                if persistent {
-                    result += repeats(after: start, from: start, task: task)
-                }
-            } else if persistent {
-                // Already due: continue on the grid anchored at the due time.
-                result += repeats(after: now, from: start, task: task)
+        if let snooze {
+            // Resume from the snooze time, then keep the normal interval from there.
+            result.append(PlannedNotification(taskID: task.id, fireDate: snooze, kind: .repeated))
+            if persistent {
+                result += repeats(after: snooze, from: snooze, task: task)
             }
+        } else if start > now {
+            result.append(PlannedNotification(taskID: task.id, fireDate: start, kind: .due))
+            if persistent {
+                result += repeats(after: start, from: start, task: task)
+            }
+        } else if persistent {
+            // Already due: continue on the grid anchored at the due time.
+            result += repeats(after: now, from: start, task: task)
         }
 
         return Array(result.sorted { $0.fireDate < $1.fireDate }.prefix(perTaskLimit))

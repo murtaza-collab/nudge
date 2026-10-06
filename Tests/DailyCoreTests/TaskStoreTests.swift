@@ -16,7 +16,6 @@ import Testing
             recurrence: Recurrence(frequency: .monthly, ordinal: 2, ordinalWeekday: 3),
             notificationsMuted: true,
             snoozedUntil: Date(timeIntervalSinceReferenceDate: 812_000_000.25),
-            notificationsAcknowledgedAt: Date(timeIntervalSinceReferenceDate: 811_000_000.5),
             seriesID: UUID(),
             createdAt: Date(timeIntervalSinceReferenceDate: 812_345_678.123456)
         )

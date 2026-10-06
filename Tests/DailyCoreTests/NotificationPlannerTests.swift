@@ -77,13 +77,8 @@ import Testing
         #expect(fires(t, now: date(2026, 9, 28, 15, 20)).first?.0 == date(2026, 9, 28, 15, 30))
     }
 
-    @Test func acknowledgedStopsLoopUntilRescheduled() {
+    @Test func rescheduledTaskPlansFromNewTime() {
         var t = task(dueAt: 15 * 60)
-        t.notificationsAcknowledgedAt = date(2026, 9, 28, 15, 5)
-        #expect(fires(t, now: date(2026, 9, 28, 15, 10)).isEmpty)
-        #expect(!NotificationPlanner.isNotifiable(t, calendar: testCalendar))
-
-        // Rescheduled to 5 PM: the loop runs again.
         t.dueMinutes = 17 * 60
         #expect(fires(t, now: date(2026, 9, 28, 15, 10)).first?.0 == date(2026, 9, 28, 17))
         #expect(NotificationPlanner.isNotifiable(t, calendar: testCalendar))

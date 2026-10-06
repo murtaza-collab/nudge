@@ -81,7 +81,7 @@ public final class TaskStore: @unchecked Sendable {
             try database.transaction {
                 try database.execute("""
                     ALTER TABLE tasks ADD COLUMN snoozed_until REAL;
-                    ALTER TABLE tasks ADD COLUMN acknowledged_at REAL;
+                    ALTER TABLE tasks ADD COLUMN acknowledged_at REAL; -- no longer used
                     """)
                 try database.setUserVersion(2)
             }
@@ -254,16 +254,16 @@ public final class TaskStore: @unchecked Sendable {
     public func save(_ task: DailyTask) throws {
         try database.run("""
             INSERT INTO tasks (id, title, notes, due_day, due_minutes, reminder, priority, links, recurrence, category_id,
-                               notifications_muted, snoozed_until, acknowledged_at, series_id,
+                               notifications_muted, snoozed_until, series_id,
                                created_at, updated_at, completed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title, notes = excluded.notes, due_day = excluded.due_day,
                 due_minutes = excluded.due_minutes, reminder = excluded.reminder,
                 priority = excluded.priority, links = excluded.links, recurrence = excluded.recurrence,
                 category_id = excluded.category_id,
                 notifications_muted = excluded.notifications_muted, snoozed_until = excluded.snoozed_until,
-                acknowledged_at = excluded.acknowledged_at, series_id = excluded.series_id,
+                series_id = excluded.series_id,
                 created_at = excluded.created_at, updated_at = excluded.updated_at,
                 completed_at = excluded.completed_at
             """, try encodeTask(task))
@@ -336,7 +336,6 @@ public final class TaskStore: @unchecked Sendable {
             task.categoryID.map { .text($0.uuidString) } ?? .null,
             .integer(task.notificationsMuted ? 1 : 0),
             task.snoozedUntil.map { .real($0.timeIntervalSinceReferenceDate) } ?? .null,
-            task.notificationsAcknowledgedAt.map { .real($0.timeIntervalSinceReferenceDate) } ?? .null,
             task.seriesID.map { .text($0.uuidString) } ?? .null,
             .real(task.createdAt.timeIntervalSinceReferenceDate),
             .real(task.updatedAt.timeIntervalSinceReferenceDate),
@@ -361,7 +360,6 @@ public final class TaskStore: @unchecked Sendable {
             categoryID: row.string("category_id").flatMap(UUID.init(uuidString:)),
             notificationsMuted: row.int("notifications_muted") == 1,
             snoozedUntil: row.double("snoozed_until").map(Date.init(timeIntervalSinceReferenceDate:)),
-            notificationsAcknowledgedAt: row.double("acknowledged_at").map(Date.init(timeIntervalSinceReferenceDate:)),
             seriesID: row.string("series_id").flatMap(UUID.init(uuidString:)),
             createdAt: Date(timeIntervalSinceReferenceDate: row.double("created_at") ?? 0),
             updatedAt: Date(timeIntervalSinceReferenceDate: row.double("updated_at") ?? 0),
